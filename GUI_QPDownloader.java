@@ -102,7 +102,7 @@ public class GUI_QPDownloader extends JFrame implements ActionListener{
 			columnNames[++i] = sp.toString();
 		}
 
-		System.out.println(SeasonPage.courses.size()+" courses in total for "+qpdown.seasonPagesInfo.size() + " exams.");
+		System.out.println(SeasonPage.courses.size()+" Question Papers in total for "+qpdown.seasonPagesInfo.size() + " exams.");
 		data = new JCheckBox[SeasonPage.courses.size()][qpdown.seasonPagesInfo.size()];
 		final boolean[][] editable = new boolean[SeasonPage.courses.size()][qpdown.seasonPagesInfo.size()];
 		int r=-1;
@@ -129,7 +129,7 @@ public class GUI_QPDownloader extends JFrame implements ActionListener{
 		}
 
 //System.out.println((new JCheckBox()).getClass().toString() + " " + data[0][0].getClass().toString());
-		final ArrayList v = new ArrayList(SeasonPage.courses);
+		final ArrayList<String> v = new ArrayList<String>(SeasonPage.courses);
 		table = new JTable(){
 			public TableCellRenderer getCellRenderer(int row, int column) {
 				return new CheckBoxRenderer();
@@ -285,7 +285,7 @@ class MyJMenuBar{
 			public void actionPerformed(ActionEvent e) {
 				//show about dialogue box
 				JOptionPane.showMessageDialog(frame, 
-"   Programming language: Java\n"+
+//"   Programming language: Java\n"+
 "   Developer: Monish Gupta\n"+
 "   monishgupta.blogspot.com", "About", JOptionPane.PLAIN_MESSAGE);
 			}

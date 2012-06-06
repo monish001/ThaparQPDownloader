@@ -9,6 +9,8 @@ import java.io.InputStreamReader;
 
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 
 import java.util.AbstractList;
 import java.util.regex.Pattern;
@@ -16,6 +18,14 @@ import java.util.regex.Matcher;
 import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.Iterator;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+
 class CourseInfo/* implements Comparable*/{
 	CourseInfo(String na, String li){
 		name = (na!=null)?na:"";
@@ -31,8 +41,8 @@ class SeasonPage{//Contains info for 1 exam season
 		Matcher matcher1 = pattern1.matcher(input);
 		Pattern pattern2 = Pattern.compile("(>.*)+((\\s)*)?(\\w)*</");
 		Matcher matcher2 = pattern2.matcher(input);
-
-		if(matcher1.find() && matcher2.find()){
+		boolean res1=false, res2=false;
+		if((res1=matcher1.find()) && (res2=matcher2.find())){
 			int start = matcher1.start();
 			int end = matcher1.end();
 			String course_link = input.substring(start, end);
@@ -61,7 +71,7 @@ class SeasonPage{//Contains info for 1 exam season
 			coursesInfo.add(new CourseInfo(course_name, course_link));
 			courses.add(course_name);
 		}else
-			System.out.println("REGEX ERROR 2");
+			System.out.println("REGEX ERROR 2: "+res1+" "+ res2+" "+input);
 	}
 	
 	public String toString(){
@@ -106,6 +116,8 @@ public class QPDownloader{//downloads links from the html select box and saves e
 	QPDownloader(){
 		//String input = (new DownloadHTML("http://localhost/library_qp.html")).getHTML();
 		String input = (new DownloadHTML("http://cl.thapar.edu/library_qp.html")).getHTML();
+		if(input.length() == 0)
+			input = (new DownloadHTML("http://cl.thapar.edu/library_qp.html")).getHTML();
 		String patternString = "<option.+";
 		Pattern pattern = Pattern.compile(patternString);
 		
@@ -123,7 +135,7 @@ public class QPDownloader{//downloads links from the html select box and saves e
 	}
 	String shortenSeasonName(String season_name){
 		season_name = season_name.replace("February", "Feb").replace("March", "Mar").replace("September", "Sep").replace("November", "Nov").replace("December", "Dec");
-		season_name = season_name.replaceFirst("Mid Semester Test", "MST").replaceFirst("Mid SemesterTest", "MST").replaceFirst("Mid Semester Examination", "MST");
+		season_name = season_name.replaceFirst("Mid.*Test", "MST").replaceFirst("Mid.*Examination", "MST");
 		season_name = season_name.replaceFirst("End Semester Test", "EST").replaceFirst("End Semester Examination", "EST").replaceFirst("E 2 D Examination", "E 2 D");
 		return season_name;
 	}
@@ -164,38 +176,58 @@ public class QPDownloader{//downloads links from the html select box and saves e
 }
 class DownloadHTML{
 	DownloadHTML(String web_link){
-		try{
-			// Here we give the URL for the Crawler
-			URL url = new URL(web_link);
+		if((web_link.substring(7,10)).equals("172"))
+			web_link = "http://cl.thapar.edu/" + web_link.substring(20);
+		for(int i=0; i<=5; i++){
+			System.out.println("DownloadHTML: "+web_link+" i="+i);
+			try{
+				// Here we give the URL for the Crawler
+				URL url = new URL(web_link);
 
-			strbuf = new StringBuffer();
-			System.setProperty("http.proxyHost","");
-			System.setProperty("http.proxyPort", "");
-			URLConnection conn = url.openConnection();
-			DataInputStream in = new DataInputStream ( conn.getInputStream ( ) ) ;
-			BufferedReader d = new BufferedReader(new InputStreamReader(in));
-			boolean bodyStarts = false;
-			while(d.ready()){
-				do{
-					if(!bodyStarts && d.readLine().lastIndexOf("body")!=-1)
-						bodyStarts = true;
-					if(bodyStarts)
-						strbuf.append(d.readLine()+"\n");
-				}while(d.ready());
-				d.readLine();
+				strbuf = new StringBuffer();
+				SocketChannel channel = null;
+				channel = SocketChannel.open();
+				InetSocketAddress socketAddress = new InetSocketAddress(url.getHost(), 80);
+				channel.connect(socketAddress);
+
+				Charset charset = Charset.forName("ISO-8859-1");
+				CharsetDecoder decoder = charset.newDecoder();
+				CharsetEncoder encoder = charset.newEncoder();
+				String request = "GET " + url.getFile() + " \r\n\r\n";
+				ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+				CharBuffer charBuffer = CharBuffer.allocate(1024);
+				channel.write(encoder.encode(CharBuffer.wrap(request)));
+					
+				while ((channel.read(buffer)) != -1) {
+//					System.out.print("w");
+					buffer.flip();
+					decoder.decode(buffer, charBuffer, false);
+					charBuffer.flip();
+					strbuf.append(charBuffer);
+					buffer.clear();
+					charBuffer.clear();
+				}
+
+				
+				if(strbuf.toString().length() != 0){
+//					System.out.println("DownloadHTML: Got it in turn "+i+". "+web_link+" "+strbuf.toString().length());
+					break;
+				}
+				if(i==5){
+					System.out.println("DownloadHTML: SHIT, NOT WORKING "+web_link);
+				}
 			}
-			in.close();
-			d.close();
-		}
-		catch(IOException e)
-		{
-			System.out.println("DownloadHTML: "+e);
+
+			catch(IOException e)
+			{
+				System.out.println("DownloadHTML: "+web_link+" "+e);
+				break;
+			}
 		}
 	}
 	String getHTML()
 	{
 		return strbuf.toString();
 	}
-	
 	private StringBuffer strbuf;
 }
